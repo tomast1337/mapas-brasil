@@ -108,3 +108,5 @@ cache/
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+outputs/
