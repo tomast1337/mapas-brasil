@@ -35,8 +35,8 @@ svg_files.sort(key=len, reverse=True)
 # large files name
 print(svg_files[:10])
 
-# get only the first 10 files
-svg_files = svg_files[:10]
+# get the first 10 and the last 10 files
+svg_files = svg_files[:10] + svg_files[-10:]
 
 print(f"Processing SVG {len(svg_files)} files in {input_dir} directory")
 
@@ -98,13 +98,13 @@ def process_svg(svg_file):
     text["x"] = "50%"
     text["y"] = "50%"
     text["text-anchor"] = "middle"
-    text["font-size"] = f"{font_size}"
+    text["font-size"] = f"{font_size + 8}"
     text["fill"] = "black"
     text["font-family"] = "Arial, sans-serif"
     text["font-weight"] = "bold"
     text["outline"] = "#FFFFFF"
     text["stroke"] = "#FFFFFF"
-    text["stroke-width"] = "2"  # Increased stroke width for thicker outline
+    text["stroke-width"] = "1px"  # Increased stroke width for thicker outline
     text["fill"] = "#000000"
     text.append(title)
     svg.append(text)
@@ -137,7 +137,7 @@ def process_svg(svg_file):
 
     # Convert SVG to PNG
     png_output_file = f"{output_dir}/{name}.png"
-    cairosvg.svg2png(url=output_file, write_to=png_output_file)
+    cairosvg.svg2png(url=output_file, write_to=png_output_file, dpi=300)
 
     # Open the PNG file and resize it to zoom in by 30%
     scale_factor = 1.6
@@ -153,6 +153,9 @@ def process_svg(svg_file):
         right = left + width
         bottom = top + height
         cropped_img = resized_img.crop((left, top, right, bottom))
+
+        # re size the image to 512x512
+        cropped_img.thumbnail((512, 512))
         cropped_img.save(png_output_file)
 
     # delete the SVG file
