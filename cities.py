@@ -11,6 +11,8 @@ from shapely.ops import transform
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import random
 import numpy as np
+import time
+import datetime
 
 random.seed(42)
 np.random.seed(42)
@@ -44,7 +46,6 @@ def process_city(row, output_dir):
     """
     Process a single city: fetch data, plot, and save as SVG.
     """
-    id_municipio = row["id_municipio"]
     uf = row["uf"]
     municipio = row["municipio"]
     longitude = float(row["longitude"])
@@ -53,7 +54,9 @@ def process_city(row, output_dir):
     dist = 5000  # Radius in meters
     filename = f"{municipio}_{uf}.svg"
     filepath = os.path.join(output_dir, filename)
-
+    print(
+        f"Processing {municipio} ({uf}) Timestamp: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}"
+    )
     if os.path.exists(filepath):
         print(f"Already processed: {filepath}")
         return
@@ -63,7 +66,9 @@ def process_city(row, output_dir):
         data = fetch_osm_features(latitude, longitude, dist, municipio, uf)
         save_plot(graph, data, filepath)
         clean_svg_file(filepath)
-        print(f"Saved, cleaned, and titled: {filepath}")
+        print(
+            f"Saved, cleaned, and titled: {filepath} Timestamp: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}"
+        )
     except Exception as e:
         print(f"Failed to process {municipio} ({uf}): {e}")
 
