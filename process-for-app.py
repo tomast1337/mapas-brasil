@@ -3,6 +3,9 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 import subprocess
 import random
+import cairosvg
+from PIL import Image
+
 
 random.seed(42)
 
@@ -26,8 +29,11 @@ if not os.path.exists(input_dir):
     exit("Output directory does not exist")
 
 svg_files = [f for f in os.listdir(input_dir) if f.endswith(".svg")]
-# sort randomly
-random.shuffle(svg_files)
+# sort by file name len
+svg_files.sort(key=len, reverse=True)
+
+# large files name
+print(svg_files[:10])
 
 # get only the first 10 files
 svg_files = svg_files[:10]
@@ -52,12 +58,6 @@ def process_svg(svg_file):
 
     # Find the SVG tag
     svg = soup.find("svg")
-    # Zoom in the SVG file by 30% and keep the aspect ratio
-    svg["width"] = "130%"
-    svg["height"] = "130%"
-    # Remove the width and height attributes from the SVG tag
-    svg.attrs.pop("width", None)
-    svg.attrs.pop("height", None)
 
     # remove all use tags
     for use in svg.find_all("use"):
@@ -81,12 +81,24 @@ def process_svg(svg_file):
         s.extract()
         svg.append(s)
 
+    title = f"{city}, {state}"
+
+    name_length = len(title)
+    # linearly interpolate the font size based on the length of the city name
+    max_size = 32
+    min_size = 16
+    max_name_length = 35
+    min_name_length = 5
+    font_size = min_size + (max_size - min_size) * (
+        (max_name_length - name_length) / (max_name_length - min_name_length)
+    )
+
     # Add City and State text to the SVG file in centered position
     text = soup.new_tag("text")
     text["x"] = "50%"
     text["y"] = "50%"
     text["text-anchor"] = "middle"
-    text["font-size"] = "32"
+    text["font-size"] = f"{font_size}"
     text["fill"] = "black"
     text["font-family"] = "Arial, sans-serif"
     text["font-weight"] = "bold"
@@ -94,7 +106,7 @@ def process_svg(svg_file):
     text["stroke"] = "#FFFFFF"
     text["stroke-width"] = "2"  # Increased stroke width for thicker outline
     text["fill"] = "#000000"
-    text.append(f"{city}, {state}")
+    text.append(title)
     svg.append(text)
 
     # get string representation of the SVG
@@ -123,7 +135,30 @@ def process_svg(svg_file):
     # Clean the SVG file
     clean_svg_file(output_file)
 
-    print(f"Processed {city}, {state}, saved to {output_file}")
+    # Convert SVG to PNG
+    png_output_file = f"{output_dir}/{name}.png"
+    cairosvg.svg2png(url=output_file, write_to=png_output_file)
+
+    # Open the PNG file and resize it to zoom in by 30%
+    scale_factor = 1.6
+    with Image.open(png_output_file) as img:
+        width, height = img.size
+        new_width = int(width * scale_factor)
+        new_height = int(height * scale_factor)
+        resized_img = img.resize((new_width, new_height))
+
+        # Crop the center portion of the resized image
+        left = (new_width - width) // 2
+        top = (new_height - height) // 2
+        right = left + width
+        bottom = top + height
+        cropped_img = resized_img.crop((left, top, right, bottom))
+        cropped_img.save(png_output_file)
+
+    # delete the SVG file
+    os.remove(output_file)
+
+    print(f"Processed {city}, {state}, saved to {png_output_file}")
     return
 
 
