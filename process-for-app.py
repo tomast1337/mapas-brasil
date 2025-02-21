@@ -29,14 +29,6 @@ if not os.path.exists(input_dir):
     exit("Output directory does not exist")
 
 svg_files = [f for f in os.listdir(input_dir) if f.endswith(".svg")]
-# sort by file name len
-svg_files.sort(key=len, reverse=True)
-
-# large files name
-print(svg_files[:10])
-
-# get the first 10 and the last 10 files
-svg_files = svg_files[:10] + svg_files[-10:]
 
 print(f"Processing SVG {len(svg_files)} files in {input_dir} directory")
 
@@ -50,8 +42,14 @@ def process_svg(svg_file):
     # Name of the city_STATE
     [city, state] = name.split("_")
     print(f"Processing {city}, {state}")
-    output_file = f"{output_dir}/{name}.svg"
+    output_file_svg = f"{output_dir}/{name}.svg"
+    output_file_png = f"{output_dir}/{name}.png"
     input_file = f"{input_dir}/{svg_file}"
+    # if the output_file_png already exists, skip
+    if os.path.exists(output_file_png):
+        print(f"Skipping {city}, {state}, already processed")
+        return
+
     # open the SVG file
     with open(input_file, "r") as f:
         soup = BeautifulSoup(f, "xml")
@@ -129,19 +127,18 @@ def process_svg(svg_file):
         data = data.replace(old_color, new_color)
 
     # Save the SVG file
-    with open(output_file, "w") as f:
+    with open(output_file_svg, "w") as f:
         f.write(data)
 
     # Clean the SVG file
-    clean_svg_file(output_file)
+    clean_svg_file(output_file_svg)
 
     # Convert SVG to PNG
-    png_output_file = f"{output_dir}/{name}.png"
-    cairosvg.svg2png(url=output_file, write_to=png_output_file, dpi=300)
+    cairosvg.svg2png(url=output_file_svg, write_to=output_file_png, dpi=300)
 
     # Open the PNG file and resize it to zoom in by 30%
     scale_factor = 1.6
-    with Image.open(png_output_file) as img:
+    with Image.open(output_file_png) as img:
         width, height = img.size
         new_width = int(width * scale_factor)
         new_height = int(height * scale_factor)
@@ -156,12 +153,12 @@ def process_svg(svg_file):
 
         # re size the image to 512x512
         cropped_img.thumbnail((512, 512))
-        cropped_img.save(png_output_file)
+        cropped_img.save(output_file_png)
 
     # delete the SVG file
-    os.remove(output_file)
+    os.remove(output_file_svg)
 
-    print(f"Processed {city}, {state}, saved to {png_output_file}")
+    print(f"Processed {city}, {state}, saved to {output_file_png}")
     return
 
 
