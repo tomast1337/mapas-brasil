@@ -1,21 +1,38 @@
 import os
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import subprocess
+import random
+
+random.seed(42)
+
+
+def clean_svg_file(filepath: str):
+    """
+    Clean a single SVG file using svgo.
+    """
+    try:
+        # Run svgo to clean the SVG file
+        subprocess.run(["svgo", filepath], check=True)
+        print(f"Cleaned: {filepath}")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to clean {filepath}: {e}")
+    except FileNotFoundError:
+        print("svgo is not installed. Please install it using 'npm install -g svgo'.")
+
 
 input_dir = "outputs"
 if not os.path.exists(input_dir):
     exit("Output directory does not exist")
 
 svg_files = [f for f in os.listdir(input_dir) if f.endswith(".svg")]
-# sort the files by size, so that the largest files are processed first
-svg_files.sort(key=lambda f: os.path.getsize(f"{input_dir}/{f}"), reverse=True)
+# sort randomly
+random.shuffle(svg_files)
 
 # get only the first 10 files
 svg_files = svg_files[:10]
 
 print(f"Processing SVG {len(svg_files)} files in {input_dir} directory")
-
 
 output_dir = "outputs-processed"
 if not os.path.exists(output_dir):
@@ -27,7 +44,7 @@ def process_svg(svg_file):
     # Name of the city_STATE
     [city, state] = name.split("_")
     print(f"Processing {city}, {state}")
-    output_file = f"{output_dir}/{name}.png"
+    output_file = f"{output_dir}/{name}.svg"
     input_file = f"{input_dir}/{svg_file}"
     # open the SVG file
     with open(input_file, "r") as f:
@@ -42,48 +59,78 @@ def process_svg(svg_file):
     svg.attrs.pop("width", None)
     svg.attrs.pop("height", None)
 
+    # remove all use tags
+    for use in svg.find_all("use"):
+        use.decompose()
+
+    # flat all groups
+    for g in svg.find_all("g"):
+        g.unwrap()
+
+    # get blue color from the SVG
+    water = svg.find_all("path", fill="#3333FF")
+    # move to the bottom of the SVG
+    for w in water:
+        w.extract()
+        svg.insert(0, w)
+
+    # find path with style="fill:none;stroke:#000"
+    streets = svg.find_all("path", style="fill:none;stroke:#000")
+    # move to the top of the SVG
+    for s in streets:
+        s.extract()
+        svg.append(s)
+
     # Add City and State text to the SVG file in centered position
     text = soup.new_tag("text")
     text["x"] = "50%"
     text["y"] = "50%"
     text["text-anchor"] = "middle"
-    text["font-size"] = "24"
+    text["font-size"] = "32"
     text["fill"] = "black"
+    text["font-family"] = "Arial, sans-serif"
+    text["font-weight"] = "bold"
+    text["outline"] = "#FFFFFF"
+    text["stroke"] = "#FFFFFF"
+    text["stroke-width"] = "2"  # Increased stroke width for thicker outline
+    text["fill"] = "#000000"
     text.append(f"{city}, {state}")
     svg.append(text)
 
-    # remove all g tags that have a g with use tags
-    for g in svg.find_all("g"):
-        if g.find("use"):
-            g.decompose()
-
-    # remove all use tags
-    for use in svg.find_all("use"):
-        use.decompose()
-
-    # push shapes that have black stroke to the front
-    for shape in svg.find_all("path"):
-        if shape.get("stroke") == "black":
-            shape.decompose()
-            svg.insert(0, shape)
+    # get string representation of the SVG
+    data = str(svg)
+    # replace table lookups with actual colors
+    feature_colors = {
+        "#3333FF": "#4A80F5",
+        "#F4A460": "#EDE2A5",
+        "#32CD32": "#32cd32",
+        "#006400": "#2db92d",
+        "#008000": "#28a428",
+        "#90EE90": "#239023",
+        "#9ACD32": "#1e7b1e",
+        "#D3D3D3": "#C3C2C0",
+        "#A9A9A9": "#ABAAA8",
+        "#696969": "#7A7A78",
+        "#000": "#313130",
+    }
+    for old_color, new_color in feature_colors.items():
+        data = data.replace(old_color, new_color)
 
     # Save the SVG file
-    with open(input_file, "w") as f:
-        f.write(str(svg))
+    with open(output_file, "w") as f:
+        f.write(data)
 
-    print(f"Processed {city}, {state}")
+    # Clean the SVG file
+    clean_svg_file(output_file)
 
-
-print("Done")
+    print(f"Processed {city}, {state}, saved to {output_file}")
+    return
 
 
 def main():
-    # Set the pool size
-    pool_size = 4
+    for svg_file in tqdm(svg_files):
+        process_svg(svg_file)
 
-    with ThreadPoolExecutor(max_workers=pool_size) as executor:
-        futures = [executor.submit(process_svg, svg_file) for svg_file in svg_files]
-        for future in as_completed(futures):
-            future.result()
 
-    print("Done")
+if __name__ == "__main__":
+    main()
