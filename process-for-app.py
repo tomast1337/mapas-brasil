@@ -5,7 +5,7 @@ import subprocess
 import random
 import cairosvg
 from PIL import Image
-
+from unidecode import unidecode
 
 random.seed(42)
 
@@ -43,7 +43,9 @@ def process_svg(svg_file):
     [city, state] = name.split("_")
     print(f"Processing {city}, {state}")
     output_file_svg = f"{output_dir}/{name}.svg"
+    # remove spaces special characters and convert to lowercase
     output_file_png = f"{output_dir}/{name}.png"
+    output_file_png = unidecode(output_file_png).replace(" ", "_").lower()
     input_file = f"{input_dir}/{svg_file}"
     # if the output_file_png already exists, skip
     if os.path.exists(output_file_png):
