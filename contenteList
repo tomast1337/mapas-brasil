@@ -1,0 +1,119 @@
+import os
+import shutil
+import subprocess
+import matplotlib
+import matplotlib.pyplot as plt
+import osmnx as ox
+import pandas as pd
+from bs4 import BeautifulSoup
+from tqdm import tqdm
+from shapely.geometry import shape
+from shapely.ops import transform
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
+import numpy as np
+import time
+import datetime
+from unidecode import unidecode
+
+cities_df = pd.read_csv("cities.csv", delimiter=";", encoding="utf-8")
+
+# for each city, get the list generate a new column with the picture file name
+# like name_state.png
+
+
+def get_city_image(city):
+    city_name = city["municipio"]
+    state = city["uf"]
+    city_name = unidecode(city_name)
+    state = unidecode(state)
+    city_name = city_name.replace(" ", "_")
+    state = state.replace(" ", "_")
+    city_name = city_name.lower()
+    state = state.lower()
+    file_name = f"{city_name}_{state}.png"
+    city["file_name"] = file_name
+    return city
+
+
+cities_df = cities_df.apply(get_city_image, axis=1)
+
+# save the new dataframe as cities_with_file_name.csv
+cities_df.to_csv("cities_with_file_name.csv", index=False, encoding="utf-8")
+
+# select 50 random cities and print the file name with the city name and state
+random_cities = cities_df.sample(50)
+# add famous cities to the list
+selected_cities = [
+    "São Paulo",
+    "Rio de Janeiro",
+    "Belo Horizonte",
+    "Brasília",
+    "Curitiba",
+    "Porto Alegre",
+    "Salvador",
+    "Recife",
+    "Fortaleza",
+    "Manaus",
+    "Belém",
+    "Goiânia",
+    "São Luís",
+    "Maceió",
+    "Teresina",
+    "Natal",
+    "João Pessoa",
+    "Aracaju",
+    "Vitória",
+    "Cuiabá",
+    "Campo Grande",
+    "Palmas",
+    "Boa Vista",
+    "Macapá",
+    "Rio Branco",
+    "Porto Velho",
+    "Florianópolis",
+    "São José",
+    "Joinville",
+    "Blumenau",
+    "Balneário Camboriú",
+    "Itajaí",
+    "Bombinhas",
+    "Pomerode",
+    "Niterói",
+    "São Gonçalo",
+    "Duque de Caxias",
+    "Nova Iguaçu",
+    "Osasco",
+    "Santo André",
+    "São Bernardo do Campo",
+    "São Caetano do Sul",
+    "Diadema",
+    "Mauá",
+    "Barueri",
+    "Santos",
+    "São Vicente",
+    "Guarujá",
+    "Praia Grande",
+    "São Sebastião",
+]
+
+random_cities = cities_df[cities_df["municipio"].isin(selected_cities)]
+
+
+# drop all columns except the ones we need
+random_cities = random_cities[["municipio", "uf", "file_name"]]
+with open("random_cities.json", "w", encoding="utf-8") as f:
+    f.write(random_cities.to_json(orient="records", force_ascii=False))
+
+
+# copy all the images to the selected_cities folder
+
+for index, row in random_cities.iterrows():
+    file_name = row["file_name"]
+    try:
+        shutil.copy(f"outputs-processed/{file_name}", f"selected_cities/{file_name}")
+    except subprocess.CalledProcessError as e:
+        print(e)
+        print(f"Error copying {file_name}")
+        continue
+    print(f"copied {file_name}")
